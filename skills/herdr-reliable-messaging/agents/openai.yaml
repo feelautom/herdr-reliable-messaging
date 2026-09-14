@@ -1,0 +1,7 @@
+interface:
+  display_name: "Herdr Reliable Messaging"
+  short_description: "Send reliable messages between Herdr panes"
+  default_prompt: "Use $herdr-reliable-messaging to send this message safely to an exact Herdr pane title."
+
+policy:
+  allow_implicit_invocation: true

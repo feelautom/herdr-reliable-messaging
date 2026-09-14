@@ -1,0 +1,27 @@
+id = "herdr-reliable-messaging"
+name = "Herdr Reliable Messaging"
+version = "0.7.0"
+description = "Deterministic verified messaging to named Herdr panes from any local caller"
+min_herdr_version = "0.8.2"
+platforms = ["windows"]
+
+[[startup]]
+command = ["node", "src/index.mjs", "start"]
+
+[[actions]]
+id = "start"
+title = "Ensure reliable messaging daemon"
+contexts = ["workspace"]
+command = ["node", "src/index.mjs", "start"]
+
+[[actions]]
+id = "status"
+title = "Show reliable messaging status"
+contexts = ["workspace"]
+command = ["node", "src/index.mjs", "status"]
+
+[[actions]]
+id = "targets"
+title = "List eligible Herdr panes"
+contexts = ["workspace"]
+command = ["node", "src/index.mjs", "targets"]

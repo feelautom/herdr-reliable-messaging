@@ -1,0 +1,37 @@
+{
+  "name": "herdr-reliable-messaging",
+  "version": "0.7.0",
+  "private": true,
+  "description": "Deterministic verified messaging to named Herdr panes from any Herdr or external caller.",
+  "author": "FeelAutom",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FeelAutom/herdr-reliable-messaging.git"
+  },
+  "homepage": "https://github.com/FeelAutom/herdr-reliable-messaging#readme",
+  "bugs": {
+    "url": "https://github.com/FeelAutom/herdr-reliable-messaging/issues"
+  },
+  "keywords": [
+    "herdr",
+    "herdr-plugin",
+    "codex",
+    "messaging",
+    "windows"
+  ],
+  "type": "module",
+  "bin": {
+    "herdr-message": "src/index.mjs"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "start": "node src/index.mjs",
+    "daemon": "node src/index.mjs daemon",
+    "status": "node src/index.mjs status",
+    "targets": "node src/index.mjs targets"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
