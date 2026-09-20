@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.1 — 2026-09-20
+
+- Accept both Gemini CLI prompt markers: `>` in the default and auto-accept modes, `*` once YOLO mode is enabled. A free composer in YOLO mode was read as occupied, so delivery stalled without writing.
+- Treat the YOLO mode line as chrome.
+
 ## 0.8.0 — 2026-09-20
 
 - Deliver to Claude Code panes. Every composer heuristic previously assumed Codex markers, so a free Claude composer was read as occupied and no message was ever injected.

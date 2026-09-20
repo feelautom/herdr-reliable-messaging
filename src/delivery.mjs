@@ -328,7 +328,7 @@ async function advanceSubmittedMessage(runner, paneId, payload, checkpoint, pers
  * placeholders and chrome. Payload comparison stays byte-for-byte in every profile.
  */
 export function inspectEvidence(snapshot, payload, checkpoint = initialComposerCheckpoint(), profile = CODEX_PROFILE) {
-  const promptEntries = extractVisualEntries(snapshot, profile.promptMarker, profile);
+  const promptEntries = extractVisualEntries(snapshot, profile.promptMarker, profile, profile.promptMarkerPattern);
   const queuedEntries = profile.queueMarker === undefined
     ? []
     : extractVisualEntries(snapshot, profile.queueMarker, profile);
@@ -361,12 +361,12 @@ export function inspectEvidence(snapshot, payload, checkpoint = initialComposerC
  * marker also allows a bare marker line, which yields one exact empty value. The
  * continuation indent follows the width the agent reserves for its marker.
  */
-export function extractVisualEntries(snapshot, marker, profile = CODEX_PROFILE) {
+export function extractVisualEntries(snapshot, marker, profile = CODEX_PROFILE, markerPattern) {
   const lines = snapshot.split(/\r?\n/u);
   const entries = [];
   const separator = profile.separatorPattern ?? " ";
   const content = profile.allowBareMarker === true ? `(?:${separator}(.*))?` : `${separator}(.*)`;
-  const entryPattern = new RegExp(`^\\s*${escapeRegExp(marker)}${content}$`, "u");
+  const entryPattern = new RegExp(`^\\s*${markerPattern ?? escapeRegExp(marker)}${content}$`, "u");
   const indent = profile.continuationIndent ?? 2;
   const continuationPattern = new RegExp(`^ {${indent}}.+`, "u");
   let offset = 0;

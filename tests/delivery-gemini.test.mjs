@@ -74,6 +74,20 @@ test("reproduces the original defect: Codex markers never see a free Gemini comp
   assert.equal(evidence.composerEmpty, false);
 });
 
+test("recognizes the YOLO-mode marker as the same Gemini composer", () => {
+  const yolo = [SHORTCUTS, " YOLO Ctrl+Y", TOP, " *   Type your message or @path/to/file", BOTTOM].join("\n");
+  const evidence = inspectEvidence(yolo, PAYLOAD, initialComposerCheckpoint(), GEMINI_PROFILE);
+  assert.equal(evidence.composerEmpty, true);
+  assert.equal(evidence.composerOccupied, false);
+});
+
+test("reads an exact loaded prefix from a YOLO-mode Gemini composer", () => {
+  const prefix = PAYLOAD.slice(0, 40);
+  const yolo = [SHORTCUTS, " YOLO Ctrl+Y", TOP, ` * ${prefix}`, BOTTOM].join("\n");
+  const checkpoint = { ...initialComposerCheckpoint(), loadedUnits: 40 };
+  assert.equal(inspectEvidence(yolo, PAYLOAD, checkpoint, GEMINI_PROFILE).composerUnits, 40);
+});
+
 test("resolves the Gemini profile on its exact agent identifier", () => {
   assert.equal(resolveAgentProfile("gemini"), GEMINI_PROFILE);
   assert.equal(resolveAgentProfile("Gemini"), undefined);

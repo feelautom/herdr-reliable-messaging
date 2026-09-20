@@ -49,17 +49,20 @@ export const CLAUDE_PROFILE = {
 };
 
 /**
- * Gemini CLI renders prompts with an ASCII `>` inside a composer boxed by the half-block
- * rules U+2584 and U+2580. Typed content follows one ASCII space, the idle placeholder is
- * padded further, and wrapped lines are indented to the third column. A submitted message
- * keeps that same boxed shape in the transcript, so the live composer is the last entry.
+ * Gemini CLI renders prompts inside a composer boxed by the half-block rules U+2584 and
+ * U+2580. Typed content follows one ASCII space, the idle placeholder is padded further,
+ * and wrapped lines are indented to the third column. A submitted message keeps that same
+ * boxed shape in the transcript, so the live composer is the last entry.
  *
- * Because `>` is ordinary terminal punctuation, this profile relies on the composer box
- * rather than the marker alone: chrome scanning stops at the closing border.
+ * The marker depends on the approval mode: `>` in the default and auto-accept modes, `*`
+ * once YOLO mode is enabled. Both are accepted. Because those are ordinary terminal
+ * punctuation, this profile relies on the composer box rather than the marker alone:
+ * chrome scanning stops at the closing border.
  */
 export const GEMINI_PROFILE = {
   id: "gemini",
   promptMarker: ">",
+  promptMarkerPattern: "[>*]",
   queueMarker: undefined,
   separatorPattern: " ",
   allowBareMarker: false,
@@ -70,7 +73,7 @@ export const GEMINI_PROFILE = {
   ignoredTailPatterns: [
     /^[▀▄]+$/u,
     /^\?\s+for shortcuts$/u,
-    /^(?:auto-accept edits|accepting edits|plan mode)/u,
+    /^(?:auto-accept edits|accepting edits|plan mode|YOLO)/u,
   ],
   blockingUiPattern:
     /(?:allow command|do you want to proceed|press enter to confirm|select an option|approval required|allow execution|apply this change)/iu,
