@@ -1,6 +1,6 @@
 {
   "name": "herdr-reliable-messaging",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "private": true,
   "description": "Deterministic verified messaging to named Herdr panes from any Herdr or external caller.",
   "author": "FeelAutom",

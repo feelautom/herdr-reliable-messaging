@@ -21,6 +21,8 @@ Delivery reads the visible composer of the target pane, so each agent needs its 
 
 A pane running any other agent, or no recognized agent, stays pending with `TARGET_AGENT_UNSUPPORTED` and is never written into with foreign markers. Adding an agent means adding one profile in `src/agent-profiles.mjs`: its markers, marker separator, continuation indent, empty-composer placeholders, chrome to ignore, and blocking approval patterns. Message payloads are compared exactly in every profile, without trimming, case folding, or Unicode normalization.
 
+Claude Code also suggests a next message inside its own composer, rendered dimmed. One styled read tells that agent-owned suggestion apart from exact user text, so a suggestion never blocks delivery and typed text is never overwritten.
+
 ## What it provides
 
 - Exact routing by visible Herdr pane title.

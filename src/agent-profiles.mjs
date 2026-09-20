@@ -32,6 +32,11 @@ export const CODEX_PROFILE = {
  * The marker is followed by U+00A0, not by an ASCII space, and an idle composer shows
  * either the bare marker or one dimmed `Try "..."` suggestion. Everything printed below
  * the closing box border is mode chrome, never conversation activity.
+ *
+ * Claude also proposes a complete next message directly inside the composer, rendered
+ * dimmed and accepted with Tab. That text belongs to the agent, not to the user, so
+ * `dimSuggestionIsEmpty` allows one styled read to recognize it and keep the composer
+ * writable. Text actually typed by the user carries no styling and stays protected.
  */
 export const CLAUDE_PROFILE = {
   id: "claude",
@@ -40,6 +45,7 @@ export const CLAUDE_PROFILE = {
   separatorPattern: "[\\u0020\\u00A0]",
   allowBareMarker: true,
   continuationIndent: 2,
+  dimSuggestionIsEmpty: true,
   tailEndsAtBorder: true,
   borderPattern: /^─+$/u,
   emptyComposerPatterns: [/^$/u, /^Try "[^"]*"$/u],
@@ -58,6 +64,9 @@ export const CLAUDE_PROFILE = {
  * once YOLO mode is enabled. Both are accepted. Because those are ordinary terminal
  * punctuation, this profile relies on the composer box rather than the marker alone:
  * chrome scanning stops at the closing border.
+ *
+ * Gemini is not known to render a dimmed suggestion inside its composer, so the styled
+ * read is not enabled for it.
  */
 export const GEMINI_PROFILE = {
   id: "gemini",

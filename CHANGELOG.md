@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.2 - 2026-09-20
+
+- Stop treating Claude's dimmed in-composer suggestion as user text. Claude proposes a complete next message inside its own composer, accepted with Tab, and the unstyled detection snapshot made it indistinguishable from typed text, so delivery stalled until the message expired.
+- Add one styled read through `agent read --source visible --ansi`, performed only when the composer looks occupied and no chunk has been loaded yet. A composer whose visible content is entirely SGR 2 counts as free.
+- Keep unstyled typed text protected, and fail closed on a mixed or unavailable styled read.
+
 ## 0.8.1 — 2026-09-20
 
 - Accept both Gemini CLI prompt markers: `>` in the default and auto-accept modes, `*` once YOLO mode is enabled. A free composer in YOLO mode was read as occupied, so delivery stalled without writing.

@@ -1,6 +1,6 @@
 import { CODEX_PROFILE, resolveAgentProfile, supportedAgentIds } from "./agent-profiles.mjs";
 import { MAX_SUBMIT_ATTEMPTS } from "./constants.mjs";
-import { appendComposerText, getAgent, readDetection, readRecentHistory, submitExactComposer } from "./herdr.mjs";
+import { appendComposerText, getAgent, readDetection, readRecentHistory, readStyledComposer, submitExactComposer } from "./herdr.mjs";
 
 /** Consecutive empty snapshots required before a confirmed prefix is declared lost. */
 const MAX_MISSING_COMPOSER_OBSERVATIONS = 2;
@@ -174,7 +174,20 @@ export async function advanceComposerMessage(
     return result("PENDING", "COMPOSER_RECONCILIATION_REQUIRED", paneId, missing);
   }
   if (!composerRepresentsUnits(evidence, loadedUnits)) {
-    return result("PENDING", "TARGET_COMPOSER_OCCUPIED", paneId, checkpoint);
+    if (loadedUnits !== 0 || profile.dimSuggestionIsEmpty !== true) {
+      return result("PENDING", "TARGET_COMPOSER_OCCUPIED", paneId, checkpoint);
+    }
+    let styledSnapshot;
+    try {
+      styledSnapshot = await readStyledComposer(runner, paneId);
+    } catch (error) {
+      await trace(event("styled_snapshot", "failed", checkpoint, safeError(error), agent, evidence));
+      return result("PENDING", "TARGET_COMPOSER_OCCUPIED", paneId, checkpoint);
+    }
+    if (!composerContentIsDimOnly(styledSnapshot, profile)) {
+      return result("PENDING", "TARGET_COMPOSER_OCCUPIED", paneId, checkpoint);
+    }
+    await trace(event("styled_snapshot", "dim_suggestion_ignored", checkpoint, undefined, agent, evidence));
   }
   if (Object.hasOwn(checkpoint, "missingComposerObservations")) {
     const reconciled = { ...checkpoint, readyObservations: 0 };
@@ -351,6 +364,58 @@ export function inspectEvidence(snapshot, payload, checkpoint = initialComposerC
   );
   const blockingUi = profile.blockingUiPattern.test(snapshot);
   return { composerUnits, composerEndUnits, composerEmpty, composerOccupied, submittedCount, queuedCount, blockingUi };
+}
+
+/**
+ * Splits one styled terminal line into visible characters carrying their dim attribute.
+ *
+ * Only SGR 2 is tracked. SGR 0 and SGR 22 clear it, colors leave it unchanged, and an
+ * unterminated escape sequence stops the scan rather than producing invented characters.
+ */
+export function styledCharacters(line) {
+  const characters = [];
+  let dim = false;
+  for (let index = 0; index < line.length; index += 1) {
+    if (line[index] === "\u001B" && line[index + 1] === "[") {
+      const end = line.indexOf("m", index);
+      if (end === -1) break;
+      for (const parameter of line.slice(index + 2, end).split(";")) {
+        if (parameter === "" || parameter === "0" || parameter === "22") dim = false;
+        else if (parameter === "2") dim = true;
+      }
+      index = end;
+      continue;
+    }
+    if (line[index] === "\r") continue;
+    characters.push({ character: line[index], dim });
+  }
+  return characters;
+}
+
+/**
+ * Reports whether the composer holds only agent-owned dimmed content.
+ *
+ * Claude renders its suggested next message dimmed inside the composer while text typed
+ * by the user carries no styling at all. Every visible character after the marker must be
+ * dim for the composer to count as free; anything else fails closed and stays protected.
+ */
+export function composerContentIsDimOnly(styledSnapshot, profile = CODEX_PROFILE) {
+  if (profile.dimSuggestionIsEmpty !== true) return false;
+  const markerSource = profile.promptMarkerPattern ?? escapeRegExp(profile.promptMarker);
+  const markerPattern = new RegExp(`^${markerSource}$`, "u");
+  const separatorPattern = new RegExp(`^${profile.separatorPattern ?? " "}$`, "u");
+  const lines = styledSnapshot.split(/\r?\n/u);
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const characters = styledCharacters(lines[index]);
+    let cursor = 0;
+    while (cursor < characters.length && /\s/u.test(characters[cursor].character)) cursor += 1;
+    if (cursor >= characters.length || !markerPattern.test(characters[cursor].character)) continue;
+    cursor += 1;
+    if (cursor < characters.length && separatorPattern.test(characters[cursor].character)) cursor += 1;
+    const content = characters.slice(cursor).filter((entry) => !/\s/u.test(entry.character));
+    return content.length > 0 && content.every((entry) => entry.dim);
+  }
+  return false;
 }
 
 /**

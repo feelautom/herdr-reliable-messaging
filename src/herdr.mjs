@@ -78,6 +78,17 @@ export async function readDetection(runner, paneId) {
   return runner.runText(["agent", "read", paneId, "--source", "detection", "--lines", "160"]);
 }
 
+/**
+ * Reads a short styled snapshot that preserves the terminal's own SGR attributes.
+ *
+ * The detection source strips styling, so a dimmed agent suggestion and exact user text
+ * become indistinguishable. This read is used only to tell those two apart, never as
+ * composer prefix evidence.
+ */
+export async function readStyledComposer(runner, paneId) {
+  return runner.runText(["agent", "read", paneId, "--source", "visible", "--ansi", "--lines", "40"]);
+}
+
 /** Reads a deeper recent transcript only when bounded detection lost a long receipt. */
 export async function readRecentHistory(runner, paneId) {
   return runner.runText(["agent", "read", paneId, "--source", "recent-unwrapped", "--lines", "4096"]);
