@@ -481,7 +481,7 @@ class ComposerRunner {
   /** Emulates only the Herdr operations used by the composer state machine. */
   async run(args) {
     if (args[0] === "agent" && args[1] === "get") {
-      return { agent: { pane_id: args[2], agent_status: this.status, state_change_seq: this.stateChangeSeq, revision: this.revision } };
+      return { agent: { agent: "codex", pane_id: args[2], agent_status: this.status, state_change_seq: this.stateChangeSeq, revision: this.revision } };
     }
     if (args[0] === "pane" && args[1] === "send-text") {
       this.appendedChunks.push(args[3]);

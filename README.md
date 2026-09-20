@@ -4,10 +4,22 @@ A community Herdr plugin for durable, deterministic message delivery between nam
 
 Herdr Reliable Messaging was created to make automated long-prompt delivery dependable when native terminal input can leave text staged in a Codex composer without submitting it. It accepts a message once, stores it durably, loads it into the target composer in verified chunks, submits it once, and records a body-free delivery receipt.
 
-This is a terminal transport and integration problem, not a language-model problem: the model does not receive the prompt until the terminal UI submits it. The plugin is model-agnostic when the same supported terminal agent is used. Recipient TUI behavior still requires separate qualification. Reproducible validation currently covers Codex on Windows; the maintainer has also used the plugin with Claude, but that use is not yet covered by a public repeatable compatibility test. Senders may be any named Herdr pane or an explicitly labeled local process.
+This is a terminal transport and integration problem, not a language-model problem: the model does not receive the prompt until the terminal UI submits it. Delivery evidence is therefore read from the recipient's visible composer, and each recipient interface needs its own rendering profile. Codex, Claude Code, and Gemini CLI are supported in every direction, each covered by automated regressions. Senders may be any named Herdr pane or an explicitly labeled local process.
 
 > [!IMPORTANT]
 > This is an independent community project provided **as is**. It is not an official Herdr plugin and comes with no support, maintenance, roadmap, compatibility, or response-time commitment. Fork it, adapt it, or maintain your own version under the MIT license.
+
+## Supported agent user interfaces
+
+Delivery reads the visible composer of the target pane, so each agent needs its exact rendering profile. The plugin selects that profile from the exact `agent` identifier Herdr reports for the pane:
+
+| Agent identifier | Interface | Prompt marker | Composer shape |
+| --- | --- | --- | --- |
+| `codex` | Codex CLI | `›` with `↳` for queued entries | inline, `Ask Codex` placeholder |
+| `claude`, `claude-code` | Claude Code | `❯` followed by U+00A0 | boxed with `─` rules |
+| `gemini` | Gemini CLI | ASCII `>` | boxed with U+2584 and U+2580 rules |
+
+A pane running any other agent, or no recognized agent, stays pending with `TARGET_AGENT_UNSUPPORTED` and is never written into with foreign markers. Adding an agent means adding one profile in `src/agent-profiles.mjs`: its markers, marker separator, continuation indent, empty-composer placeholders, chrome to ignore, and blocking approval patterns. Message payloads are compared exactly in every profile, without trimming, case folding, or Unicode normalization.
 
 ## What it provides
 

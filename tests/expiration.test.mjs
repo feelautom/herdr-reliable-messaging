@@ -31,7 +31,7 @@ class ExpirationRunner {
       { pane_id: "target", label: "TARGET", terminal_id: "terminal", workspace_id: "workspace", tab_id: "tab" },
       { pane_id: "second", label: "SECOND", terminal_id: "second-terminal", workspace_id: "workspace", tab_id: "tab" },
     ] : [] };
-    if (args[1] === "get") return { agent: { agent_status: "working", state_change_seq: 10, revision: 10 } };
+    if (args[1] === "get") return { agent: { agent: "codex", agent_status: "working", state_change_seq: 10, revision: 10 } };
     if (args[1] === "send-text") { this.composer += args[3]; this.snapshot = `› ${this.composer}`; return {}; }
     if (args[1] === "send-keys") {
       this.submittedPayloads.push(this.composer);

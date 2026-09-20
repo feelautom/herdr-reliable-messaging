@@ -1,3 +1,4 @@
+import { CODEX_PROFILE, resolveAgentProfile, supportedAgentIds } from "./agent-profiles.mjs";
 import { MAX_SUBMIT_ATTEMPTS } from "./constants.mjs";
 import { appendComposerText, getAgent, readDetection, readRecentHistory, submitExactComposer } from "./herdr.mjs";
 
@@ -60,10 +61,16 @@ export async function advanceComposerMessage(
     return result("PENDING", "SNAPSHOT_UNAVAILABLE", paneId, checkpoint);
   }
 
-  let evidence = inspectEvidence(snapshot, payload, checkpoint);
+  const profile = resolveAgentProfile(agent.agent);
+  if (profile === undefined) {
+    await trace(event("snapshot", "unsupported_agent", checkpoint, supportedAgentIds().join(","), agent));
+    return result("PENDING", "TARGET_AGENT_UNSUPPORTED", paneId, checkpoint);
+  }
+
+  let evidence = inspectEvidence(snapshot, payload, checkpoint, profile);
   await trace(event("snapshot", "observed", checkpoint, undefined, agent, evidence));
   if (checkpoint.submissionAttempted === true) {
-    return advanceSubmittedMessage(runner, paneId, payload, checkpoint, persist, trace, agent, evidence);
+    return advanceSubmittedMessage(runner, paneId, payload, checkpoint, persist, trace, agent, evidence, profile);
   }
 
   const loadedUnits = checkpoint.loadedUnits ?? 0;
@@ -71,7 +78,7 @@ export async function advanceComposerMessage(
   if (!Number.isInteger(pendingAppendEnd) && loadedUnits < payload.length &&
       (checkpoint.appendAttempts ?? 0) > (checkpoint.loadedChunks ?? 0)) {
     const recoverableEnd = nextChunkEnd(payload, loadedUnits, chunkLimit);
-    const recoveryEvidence = inspectEvidence(snapshot, payload, { ...checkpoint, pendingAppendEnd: recoverableEnd });
+    const recoveryEvidence = inspectEvidence(snapshot, payload, { ...checkpoint, pendingAppendEnd: recoverableEnd }, profile);
     if (recoveryEvidence.composerUnits === recoverableEnd) {
       const recovered = {
         ...checkpoint,
@@ -246,12 +253,12 @@ function clearMissingAppendEvidence(checkpoint) {
  * A still-exact full composer may receive one bounded retry. Otherwise delivery needs
  * an empty composer and a receipt count newer than the baseline captured before loading.
  */
-async function advanceSubmittedMessage(runner, paneId, payload, checkpoint, persist, trace, agent, evidence) {
+async function advanceSubmittedMessage(runner, paneId, payload, checkpoint, persist, trace, agent, evidence, profile) {
   let correlatedReceipt = evidence.submittedCount > (checkpoint.baselineSubmittedCount ?? 0) ||
     evidence.queuedCount > (checkpoint.baselineQueuedCount ?? 0);
   if (evidence.composerEmpty && !correlatedReceipt) {
     try {
-      const historyEvidence = inspectEvidence(await readRecentHistory(runner, paneId), payload, checkpoint);
+      const historyEvidence = inspectEvidence(await readRecentHistory(runner, paneId), payload, checkpoint, profile);
       correlatedReceipt = historyEvidence.submittedCount > (checkpoint.baselineSubmittedCount ?? 0) ||
         historyEvidence.queuedCount > (checkpoint.baselineQueuedCount ?? 0);
       await trace(event(
@@ -314,16 +321,23 @@ async function advanceSubmittedMessage(runner, paneId, payload, checkpoint, pers
   return result("PENDING", evidence.composerOccupied ? "TARGET_COMPOSER_OCCUPIED" : "SUBMISSION_UNPROVEN", paneId, checkpoint);
 }
 
-/** Extracts exact composer and receipt evidence without normalizing payload text. */
-export function inspectEvidence(snapshot, payload, checkpoint = initialComposerCheckpoint()) {
-  const promptEntries = extractVisualEntries(snapshot, "›");
-  const queuedEntries = extractVisualEntries(snapshot, "↳");
+/**
+ * Extracts exact composer and receipt evidence without normalizing payload text.
+ *
+ * The profile supplies the target agent's exact markers, separator, empty-composer
+ * placeholders and chrome. Payload comparison stays byte-for-byte in every profile.
+ */
+export function inspectEvidence(snapshot, payload, checkpoint = initialComposerCheckpoint(), profile = CODEX_PROFILE) {
+  const promptEntries = extractVisualEntries(snapshot, profile.promptMarker, profile);
+  const queuedEntries = profile.queueMarker === undefined
+    ? []
+    : extractVisualEntries(snapshot, profile.queueMarker, profile);
   const submittedCount = promptEntries.filter((entry) => visualEntryMatches(entry, payload)).length;
   const queuedCount = queuedEntries.filter((entry) => visualEntryMatches(entry, payload)).length;
   const lastPrompt = promptEntries.at(-1);
   const lastPromptTail = lastPrompt ? snapshot.slice(lastPrompt.endOffset) : "";
-  const lastPromptIsComposer = Boolean(lastPrompt && !hasPostPromptActivity(lastPromptTail));
-  const composerEmpty = Boolean(lastPromptIsComposer && isEmptyComposerPlaceholder(lastPrompt));
+  const lastPromptIsComposer = Boolean(lastPrompt && !hasPostPromptActivity(lastPromptTail, profile));
+  const composerEmpty = Boolean(lastPromptIsComposer && isEmptyComposerPlaceholder(lastPrompt, profile));
   const candidates = [payload.length, checkpoint.pendingAppendEnd, checkpoint.loadedUnits]
     .filter((value, index, values) => Number.isInteger(value) && value > 0 && values.indexOf(value) === index);
   const composerUnits = lastPromptIsComposer && !composerEmpty
@@ -335,28 +349,40 @@ export function inspectEvidence(snapshot, payload, checkpoint = initialComposerC
   const composerOccupied = Boolean(
     lastPromptIsComposer && !composerEmpty && composerUnits === undefined && composerEndUnits === undefined,
   );
-  const blockingUi = /(?:allow command|do you want to proceed|press enter to confirm|select an option|approval required)/iu.test(snapshot);
+  const blockingUi = profile.blockingUiPattern.test(snapshot);
   return { composerUnits, composerEndUnits, composerEmpty, composerOccupied, submittedCount, queuedCount, blockingUi };
 }
 
-/** Reconstructs prompt or queue entries split only by the visual continuation indent. */
-export function extractVisualEntries(snapshot, marker) {
+/**
+ * Reconstructs prompt or queue entries split only by the visual continuation indent.
+ *
+ * The separator between the marker and its content is agent specific: Codex uses an
+ * ASCII space, Claude Code uses U+00A0. An agent whose idle composer shows only its
+ * marker also allows a bare marker line, which yields one exact empty value. The
+ * continuation indent follows the width the agent reserves for its marker.
+ */
+export function extractVisualEntries(snapshot, marker, profile = CODEX_PROFILE) {
   const lines = snapshot.split(/\r?\n/u);
   const entries = [];
+  const separator = profile.separatorPattern ?? " ";
+  const content = profile.allowBareMarker === true ? `(?:${separator}(.*))?` : `${separator}(.*)`;
+  const entryPattern = new RegExp(`^\\s*${escapeRegExp(marker)}${content}$`, "u");
+  const indent = profile.continuationIndent ?? 2;
+  const continuationPattern = new RegExp(`^ {${indent}}.+`, "u");
   let offset = 0;
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
-    const match = new RegExp(`^\\s*${escapeRegExp(marker)} (.*)$`, "u").exec(line);
+    const match = entryPattern.exec(line);
     const lineStart = offset;
     offset += line.length + 1;
     if (!match) continue;
-    let value = match[1];
-    const segments = [match[1]];
+    let value = match[1] ?? "";
+    const segments = [value];
     let endOffset = offset;
-    while (index + 1 < lines.length && /^  .+/u.test(lines[index + 1])) {
+    while (index + 1 < lines.length && continuationPattern.test(lines[index + 1])) {
       index += 1;
       const continuation = lines[index];
-      const segment = continuation.slice(2);
+      const segment = continuation.slice(indent);
       segments.push(segment);
       value += segment;
       offset += continuation.length + 1;
@@ -432,19 +458,27 @@ function canWriteComposer(status) {
   return status === "idle" || status === "done" || status === "working";
 }
 
-/** Recognizes only Codex's known empty-composer placeholders. */
-function isEmptyComposerPlaceholder(entry) {
-  return entry.segments.length === 1 && /^(?:Ask Codex|Ask Codex to do anything)$/u.test(entry.value);
+/** Recognizes only the exact empty-composer placeholders declared by one agent profile. */
+function isEmptyComposerPlaceholder(entry, profile = CODEX_PROFILE) {
+  return entry.segments.length === 1 &&
+    profile.emptyComposerPatterns.some((pattern) => pattern.test(entry.value));
 }
 
-/** Detects visible activity after a prompt entry while ignoring stable Codex footers. */
-function hasPostPromptActivity(tail) {
-  return tail.split(/\r?\n/u).some((line) => {
+/**
+ * Detects visible activity after a prompt entry while ignoring stable agent chrome.
+ *
+ * A boxed composer closes on its own border line, so everything printed below that
+ * border is mode chrome and never counts as conversation activity.
+ */
+function hasPostPromptActivity(tail, profile = CODEX_PROFILE) {
+  for (const line of tail.split(/\r?\n/u)) {
     const trimmed = line.trim();
-    return trimmed.length > 0 &&
-      !/^gpt-[\w.-]+/u.test(trimmed) &&
-      !/^tab to queue message(?:\s+\d+% context left)?$/u.test(trimmed);
-  });
+    if (trimmed.length === 0) continue;
+    if (profile.tailEndsAtBorder === true && profile.borderPattern?.test(trimmed)) return false;
+    if (profile.ignoredTailPatterns.some((pattern) => pattern.test(trimmed))) continue;
+    return true;
+  }
+  return false;
 }
 
 /** Escapes one exact marker before constructing the visual-entry regular expression. */

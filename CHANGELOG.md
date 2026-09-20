@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.0 — 2026-09-20
+
+- Deliver to Claude Code panes. Every composer heuristic previously assumed Codex markers, so a free Claude composer was read as occupied and no message was ever injected.
+- Deliver to Gemini CLI panes, whose boxed composer uses an ASCII marker and a three-column continuation indent.
+- Select one exact agent rendering profile per target pane from the `agent` identifier reported by Herdr.
+- Fail closed with `TARGET_AGENT_UNSUPPORTED` on an unrecognized or absent target agent instead of writing with foreign markers.
+- Keep payload comparison exact in every profile, without trimming, case folding, or Unicode normalization.
+- Add 23 regressions covering both new composers, their markers and separators, mode chrome, occupied composers, permission prompts, unsupported agents, multipart delivery, and the original Codex-only defect.
+
 ## 0.7.0 — 2026-09-06
 
 - Expire every unconfirmed data message five minutes after its original durable admission.

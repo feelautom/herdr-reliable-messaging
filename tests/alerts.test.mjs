@@ -193,7 +193,7 @@ class AlertRunner {
         this.postSubmitReads += 1;
         if (this.postSubmitReads >= 3) this.agentStatus = "idle";
       }
-      return { agent: { pane_id: "sender-pane", agent_status: this.agentStatus, state_change_seq: this.stateChangeSeq, revision: this.revision } };
+      return { agent: { agent: "codex", pane_id: "sender-pane", agent_status: this.agentStatus, state_change_seq: this.stateChangeSeq, revision: this.revision } };
     }
     if (args[0] === "pane" && args[1] === "send-text") {
       this.composer += args[3];

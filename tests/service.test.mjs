@@ -759,7 +759,7 @@ class ServiceRunner {
         this.postSubmitReads += 1;
         if (this.postSubmitReads >= 3) this.agentStatus = "idle";
       }
-      return { agent: { pane_id: args[2], agent_status: this.agentStatus, state_change_seq: this.stateChangeSeq, revision: this.revision } };
+      return { agent: { agent: "codex", pane_id: args[2], agent_status: this.agentStatus, state_change_seq: this.stateChangeSeq, revision: this.revision } };
     }
     if (args[0] === "pane" && args[1] === "send-text") {
       this.composer += args[3];
@@ -819,7 +819,7 @@ class ParallelLaneRunner {
         new Promise((resolve) => setTimeout(resolve, 250)),
       ]);
       this.activeRecipientReads.delete(paneId);
-      return { agent: { pane_id: paneId, agent_status: "idle", state_change_seq: 1, revision: 1 } };
+      return { agent: { agent: "codex", pane_id: paneId, agent_status: "idle", state_change_seq: 1, revision: 1 } };
     }
     if (args[0] === "pane" && args[1] === "send-text") {
       const composer = `${this.composers.get(args[2]) || ""}${args[3]}`;
@@ -873,7 +873,7 @@ class MultiTargetRunner {
     if (args[0] === "agent" && args[1] === "get") {
       const letter = args[2].at(-1);
       const title = `TARGET ${letter}`;
-      return { agent: { pane_id: args[2], agent_status: this.blockedTitle === title ? "blocked" : "idle", state_change_seq: this.stateChanges.get(args[2]), revision: this.stateChanges.get(args[2]) } };
+      return { agent: { agent: "codex", pane_id: args[2], agent_status: this.blockedTitle === title ? "blocked" : "idle", state_change_seq: this.stateChanges.get(args[2]), revision: this.stateChanges.get(args[2]) } };
     }
     if (args[0] === "pane" && args[1] === "send-text") {
       const composer = `${this.composers.get(args[2])}${args[3]}`;

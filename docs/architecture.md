@@ -86,7 +86,17 @@ For each transaction the state machine:
 7. persists the submission attempt and sends `Enter`, `Enter` once;
 8. requires two later observations of composer clearance plus a newly visible exact receipt before marking `DELIVERED`.
 
-Herdr status `working` is eligible for append and submission because Codex queues or steers input received during an active turn. Eligibility does not replace evidence: the composer must still be empty or contain the transaction's exact confirmed prefix, and blocking approval UI remains forbidden. `blocked` and unknown states remain pending without a write. The stable `tab to queue message` footer is treated as chrome rather than post-composer activity.
+### Agent rendering profiles
+
+Composer evidence is read from the visible pane, so it depends on the target agent's exact terminal rendering. Each supported agent has one profile in `src/agent-profiles.mjs` declaring its prompt marker, optional queue marker, marker separator, continuation indent, empty-composer placeholders, chrome to ignore, and blocking approval patterns. `advanceComposerMessage` selects the profile from the exact `agent` identifier Herdr reports for the target pane.
+
+Codex renders prompts with `›`, queued entries with `↳`, one ASCII space after the marker, and an `Ask Codex` placeholder in an idle composer. Claude Code renders prompts with `❯` followed by U+00A0 inside a composer boxed by `─` rules; an idle composer shows the bare marker or one dimmed `Try "..."` suggestion, and everything printed below the closing border is mode chrome rather than conversation activity. Gemini CLI renders prompts with an ASCII `>` inside a composer boxed by the half-block rules U+2584 and U+2580, pads its idle placeholder, and repeats that same boxed shape for each submitted message, so the live composer remains the last entry.
+
+Each profile also declares its continuation indent, which is the width the agent reserves for its marker: two columns for Codex and Claude Code, three for Gemini CLI. Wrapped lines are reassembled from that indent, so a visually wrapped message is compared against the exact payload without reflowing or normalizing it.
+
+Profile lookup is exact. An identifier that differs by case, spacing, or spelling is an unknown user interface, so an unrecognized or absent agent yields `TARGET_AGENT_UNSUPPORTED` and no write, instead of driving a foreign composer with another agent's markers. Profiles describe surrounding chrome only: payload fragments are still compared exactly, without trimming, case folding, or Unicode normalization.
+
+Herdr status `working` is eligible for append and submission because the supported agents queue or steer input received during an active turn. Eligibility does not replace evidence: the composer must still be empty or contain the transaction's exact confirmed prefix, and blocking approval UI remains forbidden. `blocked` and unknown states remain pending without a write. Stable footers such as Codex's `tab to queue message` line, or the mode line printed below a boxed composer, are treated as chrome rather than post-composer activity.
 
 If the process stops between persistence and append confirmation, the next scan distinguishes the previous prefix from the intended new prefix and never appends that chunk twice. If the complete text remains staged after submission, only bounded submission retries are allowed. Unrelated composer text is never overwritten or appended to.
 
